@@ -1,0 +1,65 @@
+server:
+  port: ${GATEWAY_PORT}
+
+keycloak:
+  auth-server-url: http://localhost:${KEYCLOAK_PORT}
+  realm: master
+  client-id: admin-cli
+  client-secret: ${KEYCLOAK_CLIENT_SECRET:your-client-secret}
+  admin:
+    username: ${KEYCLOAK_ADMIN}
+    password: ${KEYCLOAK_ADMIN_PASSWORD}
+
+spring:
+  cloud:
+    gateway:
+      mvc:
+        routes:
+          - id: task_service
+            uri: ${TASK_SERVICE_URL}
+            predicates:
+              - Path=/api/task-service/**
+            filters:
+              - StripPrefix=2
+          - id: habit_service
+            uri: ${HABIT_SERVICE_URL}
+            predicates:
+              - Path=/api/habits/**
+            filters:
+              - StripPrefix=1
+          - id: task_api_docs
+            uri: ${TASK_SERVICE_URL}
+            predicates:
+              - Path=/aggregate/task-service/api-docs
+            filters:
+              - StripPrefix=2
+          - id: habit_api_docs
+            uri: ${HABIT_SERVICE_URL}
+            predicates:
+              - Path=/aggregate/habit-service/api-docs
+            filters:
+              - StripPrefix=2
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:${KEYCLOAK_PORT}/realms/spring-microservices-security-realm
+
+  datasource:
+    url: jdbc:postgresql://keycloak-db:5432/${POSTGRES_DB}
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    urls:
+      - name: Task Service
+        url: /aggregate/task-service/api-docs
+      - name: Habit Service
+        url: /aggregate/habit-service/api-docs
+
+  api-docs:
+    path: /api-docs
