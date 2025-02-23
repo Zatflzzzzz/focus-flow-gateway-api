@@ -1,15 +1,6 @@
 server:
   port: ${GATEWAY_PORT}
 
-keycloak:
-  auth-server-url: http://localhost:${KEYCLOAK_PORT}
-  realm: master
-  client-id: admin-cli
-  client-secret: ${KEYCLOAK_CLIENT_SECRET:your-client-secret}
-  admin:
-    username: ${KEYCLOAK_ADMIN}
-    password: ${KEYCLOAK_ADMIN_PASSWORD}
-
 spring:
   cloud:
     gateway:
@@ -44,13 +35,7 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: http://localhost:${KEYCLOAK_PORT}/realms/spring-microservices-security-realm
-
-  datasource:
-    url: jdbc:postgresql://keycloak-db:5432/${POSTGRES_DB}
-    username: ${POSTGRES_USER}
-    password: ${POSTGRES_PASSWORD}
-    driver-class-name: org.postgresql.Driver
+          issuer-uri: ${KEYCLOAK_ISSUE_URI}
 
 springdoc:
   swagger-ui:

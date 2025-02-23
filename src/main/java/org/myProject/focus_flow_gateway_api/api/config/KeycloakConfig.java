@@ -1,31 +1,30 @@
 package org.myProject.focus_flow_gateway_api.api.config;
 
+import jakarta.annotation.PostConstruct;
+import lombok.Getter;
 import org.keycloak.admin.client.Keycloak;
 import org.keycloak.admin.client.KeycloakBuilder;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.PropertySource;
 
 @Configuration
+@Getter
 public class KeycloakConfig {
 
-    @Value("${keycloak.auth-server-url}")
+    @Value("${KEYCLOAK_URL}")
     private String authServerUrl;
 
-    @Value("${keycloak.realm}")
+    @Value("${KEYCLOAK_REALM}")
     private String realm;
 
-    @Value("${keycloak.client-id}")
+    @Value("${KEYCLOAK_CLIENT_ID}")
     private String clientId;
 
-    @Value("${keycloak.client-secret}")
+    @Value("${KEYCLOAK_CLIENT_SECRET}")
     private String clientSecret;
-
-    @Value("${keycloak.admin.username}")
-    private String adminUsername;
-
-    @Value("${keycloak.admin.password}")
-    private String adminPassword;
 
     @Bean
     public Keycloak keycloak() {
@@ -34,9 +33,7 @@ public class KeycloakConfig {
                 .realm(realm)
                 .clientId(clientId)
                 .clientSecret(clientSecret)
-                .username(adminUsername)
-                .password(adminPassword)
-                .grantType("password")
+                .grantType("client_credentials")
                 .build();
     }
 }

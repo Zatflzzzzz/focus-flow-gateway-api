@@ -17,6 +17,7 @@ public class GatewayConfig {
 
     @Autowired
     public GatewayConfig(GatewayRoutesProperties gatewayRoutesProperties) {
+
         this.gatewayRoutesProperties = gatewayRoutesProperties;
     }
 
@@ -28,6 +29,7 @@ public class GatewayConfig {
                 .build();
 
         for (GatewayRoutesProperties.Route configRoute : gatewayRoutesProperties.getRoutes()) {
+
             route = GatewayRouterFunctions.route()
                     .add(route)
                     .route(RequestPredicates.path(configRoute.getPredicates().get(0)),

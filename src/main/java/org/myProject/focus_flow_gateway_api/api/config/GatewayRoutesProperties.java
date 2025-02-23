@@ -16,10 +16,10 @@ public class GatewayRoutesProperties {
 
     @Data
     public static class Route {
+
         private String id;
         private String uri;
         private List<String> predicates;
         private List<String> filters;
-
     }
 }

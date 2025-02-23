@@ -1,16 +1,20 @@
 version: '3.8'
 
 services:
-  app:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile
-    container_name: focus-flow-gateway-api
-    ports:
-      - '${GATEWAY_PORT}:${GATEWAY_PORT}'
-    environment:
-      - SERVER_PORT=${GATEWAY_PORT}
-      - KEYCLOAK_URL=http://localhost:${KEYCLOAK_PORT}
+#  app:
+#    build:
+#      context: .
+#      dockerfile: docker/Dockerfile
+#    container_name: focus-flow-gateway-api
+#    ports:
+#      - '${GATEWAY_PORT}:${GATEWAY_PORT}'
+#    environment:
+#      - SERVER_PORT=${GATEWAY_PORT}
+#      - KEYCLOAK_URL=http://localhost:${KEYCLOAK_PORT}
+#      - KEYCLOAK_CLIENT_ID=${KEYCLOAK_CLIENT_ID}
+#      - KEYCLOAK_CLIENT_SECRET=${KEYCLOAK_CLIENT_SECRET}
+#    env_file:
+#      - .env
 
   keycloak-db:
     image: postgres:17
@@ -20,13 +24,16 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - keycloak-db-data:/var/lib/postgresql/data
+    ports:
+      - "5212:5432"
+    env_file:
+      - .env
 
   keycloak:
     image: quay.io/keycloak/keycloak:latest
     environment:
       KC_DB: postgres
-      KC_DB_URL_HOST: keycloak-db
-      KC_DB_URL_DATABASE: ${POSTGRES_DB}
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/${POSTGRES_DB}
       KC_DB_USERNAME: ${POSTGRES_USER}
       KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
@@ -37,6 +44,8 @@ services:
     depends_on:
       - keycloak-db
     command: [ "start-dev", "--import-realm" ]
+    env_file:
+      - .env
 
 volumes:
   keycloak-db-data:
