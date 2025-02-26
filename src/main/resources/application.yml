@@ -48,3 +48,15 @@ springdoc:
 
   api-docs:
     path: /api-docs
+
+#Actuator Properties
+management:
+  endpoint:
+    circuitbreakerevents:
+      enabled: true
+    health:
+      show-details: always
+  endpoints:
+    web:
+      exposure:
+        exclude: *
