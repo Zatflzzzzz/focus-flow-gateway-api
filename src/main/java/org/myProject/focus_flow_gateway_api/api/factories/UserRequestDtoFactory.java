@@ -14,6 +14,7 @@ public class UserRequestDtoFactory {
     public UserRequestDto makeUserRequestDto(
             @NonNull String email, @NonNull String password,
             @NonNull String username, @NonNull String telegramLink,
+            @NonNull String firstName, @NonNull String lastName,
             String status, String role, String profilePicture) {
 
         return UserRequestDto
@@ -21,9 +22,11 @@ public class UserRequestDtoFactory {
                 .email(email)
                 .password(password)
                 .username(username)
+                .firstName(firstName)
+                .lastName(lastName)
                 .telegramLink(telegramLink)
                 .status(status != null ? Status.valueOf(status) : null)
-                .role(role != null ? Role.valueOf(role) : null)
+                .role(Role.valueOf("USER"))
                 .profilePicture(profilePicture == null ? "noData.img" : profilePicture)
                 .build();
     }

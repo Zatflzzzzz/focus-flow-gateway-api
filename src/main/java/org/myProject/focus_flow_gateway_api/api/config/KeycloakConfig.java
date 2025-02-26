@@ -9,9 +9,9 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.PropertySource;
+import org.springframework.web.reactive.function.client.WebClient;
 
 @Configuration
-@Getter
 public class KeycloakConfig {
 
     @Value("${KEYCLOAK_URL}")
@@ -35,5 +35,10 @@ public class KeycloakConfig {
                 .clientSecret(clientSecret)
                 .grantType("client_credentials")
                 .build();
+    }
+
+    @Bean
+    public WebClient webClient() {
+        return WebClient.builder().build();
     }
 }

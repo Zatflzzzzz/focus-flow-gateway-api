@@ -26,6 +26,12 @@ public class UserRequestDto {
     String username;
 
     @NonNull
+    String firstName;
+
+    @NonNull
+    String lastName;
+
+    @NonNull
     @JsonProperty("telegram_link")
     String telegramLink;
 

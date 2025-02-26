@@ -1,41 +1,45 @@
-server:
-  port: ${GATEWAY_PORT}
 
 spring:
-  cloud:
-    gateway:
-      mvc:
-        routes:
-          - id: task_service
-            uri: ${TASK_SERVICE_URL}
-            predicates:
-              - Path=/api/task-service/**
-            filters:
-              - StripPrefix=2
-          - id: habit_service
-            uri: ${HABIT_SERVICE_URL}
-            predicates:
-              - Path=/api/habits/**
-            filters:
-              - StripPrefix=1
-          - id: task_api_docs
-            uri: ${TASK_SERVICE_URL}
-            predicates:
-              - Path=/aggregate/task-service/api-docs
-            filters:
-              - StripPrefix=2
-          - id: habit_api_docs
-            uri: ${HABIT_SERVICE_URL}
-            predicates:
-              - Path=/aggregate/habit-service/api-docs
-            filters:
-              - StripPrefix=2
-
   security:
     oauth2:
       resourceserver:
         jwt:
           issuer-uri: ${KEYCLOAK_ISSUE_URI}
+  cloud:
+    gateway:
+          mvc:
+            routes:
+              - id: task_service
+                uri: ${TASK_SERVICE_URL}
+                predicates:
+                  - Path=/api/projects/**, /api/tasks/**, /api/task-state/**, /api/tasks-states/**
+
+              # Маршрут для habit_service
+              - id: habit_service
+                uri: ${HABIT_SERVICE_URL}
+                predicates:
+                  - Path=/api/habits/**, /api/habit-logs/**
+                filters:
+                  - AddRequestHeader=X-User-Id, {X-User-Id}
+
+              # Маршрут для документации task_service
+              - id: task_api_docs
+                uri: ${TASK_SERVICE_URL}
+                predicates:
+                  - Path=/aggregate/task-service/api-docs
+                filters:
+                  - StripPrefix=2
+
+              # Маршрут для документации habit_service
+              - id: habit_api_docs
+                uri: ${HABIT_SERVICE_URL}
+                predicates:
+                  - Path=/aggregate/habit-service/api-docs
+                filters:
+                  - StripPrefix=2
+  web:
+    resources:
+          add-mappings: false
 
 springdoc:
   swagger-ui:
@@ -48,3 +52,46 @@ springdoc:
 
   api-docs:
     path: /api-docs
+
+# Actuator Properties
+management:
+  endpoint:
+    circuitbreakerevents:
+      enabled: true
+    health:
+      show-details: always
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+
+# Resilience4j
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        slidingWindowSize: 100
+        permittedNumberOfCallsInHalfOpenState: 5
+        slowCallDurationThreshold: 4s
+        slowCallRateThreshold: 90
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        minimumNumberOfCalls: 10
+    instances:
+      myCircuitBreaker:
+        baseConfig: default
+        waitDurationInOpenState: 20s
+      myCircuitBreaker2:
+        baseConfig: default
+        waitDurationInOpenState: 30s
+  timelimiter:
+    configs:
+      default:
+        timeout-duration: 3s
+  retry:
+    configs:
+      default:
+        max-attempts: 3
+        wait-duration: 2s
+server:
+  port: ${GATEWAY_PORT}
