@@ -1,9 +1,7 @@
 package org.myProject.focus_flow_gateway_api.api.config;
 
-import jakarta.servlet.http.HttpSession;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
@@ -34,6 +32,7 @@ public class SecurityConfig {
                         .requestMatchers(freeResourceUrls).permitAll()
                         .requestMatchers("/api/register", "/api/login", "/api/refresh_token").permitAll()
                         .requestMatchers("/text").hasRole("ADMIN")
+                        .requestMatchers("/actuator/**").permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())))
