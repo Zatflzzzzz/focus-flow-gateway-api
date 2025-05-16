@@ -6,8 +6,6 @@ import org.myProject.focus_flow_gateway_api.api.dto.enums.Role;
 import org.myProject.focus_flow_gateway_api.api.dto.enums.Status;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDateTime;
-
 @Component
 public class UserRequestDtoFactory {
 
