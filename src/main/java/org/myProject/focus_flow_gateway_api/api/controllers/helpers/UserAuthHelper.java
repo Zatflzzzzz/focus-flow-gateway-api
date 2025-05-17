@@ -1,13 +1,13 @@
 package org.myProject.focus_flow_gateway_api.api.controllers.helpers;
 
+import com.nimbusds.jwt.SignedJWT;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.keycloak.admin.client.Keycloak;
-import org.keycloak.admin.client.resource.RoleResource;
-import org.keycloak.admin.client.resource.UserResource;
-import org.keycloak.admin.client.resource.UsersResource;
+import org.keycloak.admin.client.resource.*;
+import org.keycloak.representations.idm.ClientRepresentation;
 import org.keycloak.representations.idm.CredentialRepresentation;
 import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
@@ -25,10 +25,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
 import javax.ws.rs.core.Response;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Slf4j
 @Component
@@ -63,23 +60,26 @@ public class UserAuthHelper {
             String userId = extractUserId(response);
 
             try {
-                assignRolesToUser(userId, requestDto.getRole());
+                // Добавляем небольшую задержку перед назначением роли
+                Thread.sleep(500);
+                assignRolesToUser(userId);
                 log.info("User {} successfully registered with roles", userId);
-
                 return userId;
             } catch (Exception e) {
                 usersResource.delete(userId);
-                log.error("Failed to assign roles to user {}. User deleted.", userId, e);
-
-                throw new CustomAppException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to assign roles to user.");
+                log.error("Failed to assign roles to user {}. User deleted. Error: {}", userId, e.getMessage(), e);
+                throw new CustomAppException(HttpStatus.INTERNAL_SERVER_ERROR,
+                        "Failed to assign roles to user: " + e.getMessage());
             }
         } else {
-            throw new CustomAppException(HttpStatus.BAD_REQUEST, "Failed to create user: " + response.getStatusInfo().getReasonPhrase());
+            String error = response.readEntity(String.class);
+            log.error("Keycloak error response: {}", error);
+            throw new CustomAppException(HttpStatus.BAD_REQUEST,
+                    "Failed to create user in Keycloak: " + error);
         }
     }
 
     private UserRepresentation createUserRepresentation(UserRequestDto requestDto) {
-
         UserRepresentation user = new UserRepresentation();
         user.setUsername(requestDto.getUsername());
         user.setEmail(requestDto.getEmail());
@@ -93,26 +93,31 @@ public class UserAuthHelper {
         credential.setTemporary(false);
         user.setCredentials(List.of(credential));
 
-        user.setAttributes(Map.of(
-                "telegramLink", List.of(requestDto.getTelegramLink()),
-                "profilePicture", List.of(requestDto.getProfilePicture()),
-                "registrationDate", List.of(requestDto.getRegistrationDate().toString())
-        ));
+        // Инициализируем атрибуты
+        Map<String, List<String>> attributes = new HashMap<>();
 
-        if (requestDto.getStatus() != null) {
-            user.getAttributes().put("status", List.of(requestDto.getStatus().name()));
+        attributes.put("telegramLink", List.of(requestDto.getTelegramLink()));
+
+        if (requestDto.getRegistrationDate() != null) {
+            attributes.put("registrationDate", List.of(requestDto.getRegistrationDate().toString()));
         }
 
+        if (requestDto.getStatus() != null) {
+            attributes.put("status", List.of(String.valueOf(requestDto.getStatus())));
+        }
+
+        user.setAttributes(attributes);
         return user;
     }
 
     private void checkIfUserExists(UserRequestDto requestDto) {
-
         UsersResource usersResource = keycloak.realm(realm).users();
         List<UserRepresentation> users = usersResource.search(requestDto.getUsername(), true);
 
-        if (!users.isEmpty() || usersResource.list().stream().anyMatch(u -> requestDto.getEmail().equalsIgnoreCase(u.getEmail()))) {
-            throw new CustomAppException(HttpStatus.BAD_REQUEST, "User with this username or email already exists");
+        if (!users.isEmpty() || usersResource.list().stream().anyMatch(u ->
+                requestDto.getEmail().equalsIgnoreCase(u.getEmail()))) {
+            throw new CustomAppException(HttpStatus.BAD_REQUEST,
+                    "User with this username or email already exists");
         }
     }
 
@@ -121,46 +126,31 @@ public class UserAuthHelper {
         return location.substring(location.lastIndexOf('/') + 1);
     }
 
-    private void assignRolesToUser(String userId, Role role) {
-
-        if (role == null) {
-            throw new CustomAppException(HttpStatus.BAD_REQUEST, "Role cannot be null.");
-        }
-
+    private void assignRolesToUser(String userId) {
         try {
             UsersResource usersResource = keycloak.realm(realm).users();
-
-            // Проверяем существование пользователя
             UserResource userResource = usersResource.get(userId);
+
             if (userResource == null) {
-                throw new CustomAppException(HttpStatus.NOT_FOUND, "User with ID " + userId + " not found in Keycloak.");
+                throw new CustomAppException(HttpStatus.NOT_FOUND,
+                        "User with ID " + userId + " not found in Keycloak.");
             }
 
-            // Проверяем существование роли
-            RoleResource roleResource = keycloak.realm(realm).roles().get(role.name());
-            if (roleResource == null) {
-                throw new CustomAppException(HttpStatus.NOT_FOUND, "Role " + role.name() + " not found in Keycloak.");
-            }
-
+            // Получаем роль из realm
+            RoleResource roleResource = keycloak.realm(realm).roles().get(Role.USER.name());
             RoleRepresentation roleRepresentation = roleResource.toRepresentation();
-            if (roleRepresentation == null) {
-                throw new CustomAppException(HttpStatus.INTERNAL_SERVER_ERROR, "Role representation for " + role.name() + " is null.");
-            }
 
             // Назначаем роль
             userResource.roles().realmLevel().add(Collections.singletonList(roleRepresentation));
-            log.info("Successfully assigned role {} to user {}", role.name(), userId);
 
-        } catch (CustomAppException e) {
-            log.error("Custom error: {}", e.getMessage());
-
-            throw e;
+            log.info("Role {} successfully assigned to user {}", Role.USER, userId);
         } catch (Exception e) {
-            log.error("Unexpected error while assigning role {} to user {}: {}", role.name(), userId, e.getMessage(), e);
-
-            throw new CustomAppException(HttpStatus.INTERNAL_SERVER_ERROR, "Unexpected error while assigning role.");
+            log.error("Error assigning role {} to user {}: {}", Role.USER.name(), userId, e.getMessage(), e);
+            throw new CustomAppException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Error assigning role: " + e.getMessage());
         }
     }
+
 
     public Map<String, Object> authenticate(String username, String password) {
 
@@ -226,5 +216,164 @@ public class UserAuthHelper {
         result.put("refresh_expires_in", response.get("refresh_expires_in"));
         result.put("refresh_token", response.get("refresh_token"));
         return result;
+    }
+
+    public void updateUser(String userId, String email, String password, String username,
+                           String firstName, String lastName, String telegramLink,
+                           String status, String token, boolean isAdminUpdate) {
+
+        // Проверяем права доступа
+        String currentUserId = getUserIdFromToken(token);
+
+        if (!isAdminUpdate && !currentUserId.equals(userId)) {
+            throw new CustomAppException(HttpStatus.FORBIDDEN, "You can only update your own profile");
+        }
+
+        if (isAdminUpdate && !isAdmin(token)) {
+            throw new CustomAppException(HttpStatus.FORBIDDEN, "Admin privileges required");
+        }
+
+        UserResource userResource = keycloak.realm(realm).users().get(userId);
+        UserRepresentation user = Optional.ofNullable(userResource.toRepresentation())
+                .orElseThrow(() -> new CustomAppException(HttpStatus.NOT_FOUND, "User not found"));
+
+        if (email != null) user.setEmail(email);
+        if (username != null) user.setUsername(username);
+        if (firstName != null) user.setFirstName(firstName);
+        if (lastName != null) user.setLastName(lastName);
+
+        // Обновляем атрибуты
+        Map<String, List<String>> attributes = Optional.ofNullable(user.getAttributes())
+                .orElse(new HashMap<>());
+
+        if (telegramLink != null) {
+            attributes.put("telegramLink", Collections.singletonList(telegramLink));
+        }
+
+        // Только админ может обновлять эти поля
+        if (isAdminUpdate) {
+            if (status != null) {
+                attributes.put("status", Collections.singletonList(status));
+            }
+        }
+
+        user.setAttributes(attributes);
+
+        // Обновление пароля
+        if (password != null) {
+            CredentialRepresentation credential = new CredentialRepresentation();
+            credential.setType(CredentialRepresentation.PASSWORD);
+            credential.setValue(password);
+            credential.setTemporary(false);
+            user.setCredentials(Collections.singletonList(credential));
+        }
+
+        userResource.update(user);
+        log.info("User {} updated by {}", userId, isAdminUpdate ? "admin" : "user");
+    }
+
+    public String getCurrentUserId(String token) {
+        return getUserIdFromToken(token);
+    }
+
+    public void logout(String authHeader) {
+        String accessToken = extractAccessToken(authHeader);
+
+        try {
+            webClient.post()
+                    .uri(keycloakUrl + "/realms/" + realm + "/protocol/openid-connect/logout")
+                    .header("Authorization", "Bearer " + accessToken)
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                    .bodyValue(createLogoutForm())
+                    .retrieve()
+                    .onStatus(HttpStatusCode::isError, response -> {
+                        log.error("Logout failed with status {}", response.statusCode());
+                        return Mono.error(new CustomAppException(
+                                HttpStatus.INTERNAL_SERVER_ERROR,
+                                "Logout failed with status: " + response.statusCode()
+                        ));
+                    })
+                    .bodyToMono(Void.class)
+                    .block();
+        } catch (Exception e) {
+            log.error("Logout failed", e);
+            throw new CustomAppException(HttpStatus.INTERNAL_SERVER_ERROR, "Logout failed: " + e.getMessage());
+        }
+    }
+
+    private String extractAccessToken(String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            throw new CustomAppException(HttpStatus.BAD_REQUEST, "Invalid authorization header");
+        }
+        return authHeader.substring(7);
+    }
+
+    private MultiValueMap<String, String> createLogoutForm() {
+        MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
+        form.add("client_id", clientId);
+        form.add("client_secret", clientSecret);
+        return form;
+    }
+
+    public UserRepresentation getUserById(String userId, String token) {
+        validateUserAccess(userId, token);
+        return Optional.ofNullable(keycloak.realm(realm).users().get(userId).toRepresentation())
+                .orElseThrow(() -> new CustomAppException(HttpStatus.NOT_FOUND, "User not found"));
+    }
+
+    public List<UserRepresentation> getAllUsers(String token) {
+        validateAdminAccess(token);
+        return keycloak.realm(realm).users().list();
+    }
+
+    private void validateAdminAccess(String token) {
+        if (!isAdmin(token)) {
+            throw new CustomAppException(HttpStatus.FORBIDDEN, "Admin access required");
+        }
+    }
+
+    private void validateUserAccess(String requestedUserId, String token) {
+        if (!isAdmin(token) && !getUserIdFromToken(token).equals(requestedUserId)) {
+            throw new CustomAppException(HttpStatus.FORBIDDEN, "Access denied");
+        }
+    }
+
+    private boolean isAdmin(String token) {
+        String userId = getUserIdFromToken(token);
+        UserResource userResource = keycloak.realm(realm).users().get(userId);
+
+        // Проверка realm-level ролей
+        List<RoleRepresentation> realmRoles = userResource.roles().realmLevel().listEffective();
+        boolean hasRealmAdmin = realmRoles.stream().anyMatch(r -> r.getName().equals(Role.ADMIN.name()));
+
+        ClientsResource clientsResource = keycloak.realm(realm).clients();
+        Optional<ClientRepresentation> clientRep = clientsResource.findByClientId(clientId).stream().findFirst();
+
+        if (clientRep.isEmpty()) {
+            log.error("Client {} not found in Keycloak", clientId);
+            throw new CustomAppException(HttpStatus.INTERNAL_SERVER_ERROR, "Client not found");
+        }
+
+        String clientUuid = clientRep.get().getId();
+        List<RoleRepresentation> clientRoles = userResource.roles().clientLevel(clientUuid).listEffective();
+        boolean hasClientAdmin = clientRoles.stream().anyMatch(r -> r.getName().equals(Role.ADMIN.name()));
+
+        return hasRealmAdmin || hasClientAdmin;
+    }
+
+    public String getUserIdFromToken(String token) {
+        if (token == null || !token.startsWith("Bearer ")) {
+            throw new CustomAppException(HttpStatus.UNAUTHORIZED, "Invalid authorization header format");
+        }
+
+        String jwtToken = token.substring(7).trim();
+
+        try {
+            SignedJWT signedJWT = SignedJWT.parse(jwtToken);
+            return signedJWT.getJWTClaimsSet().getSubject(); // "sub"
+        } catch (Exception e) {
+            log.error("Failed to parse JWT", e);
+            throw new CustomAppException(HttpStatus.UNAUTHORIZED, "Invalid JWT token");
+        }
     }
 }

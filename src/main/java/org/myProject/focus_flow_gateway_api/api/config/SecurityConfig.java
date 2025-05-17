@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
 public class SecurityConfig {
 
     private final String[] freeResourceUrls = {"/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**",
-            "/swagger-resources/**", "/api-docs/**", "/aggregate/**"};
+            "/swagger-resources/**", "/api-docs/**", "/aggregate/**", "/actuator/**"};
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -31,8 +31,6 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(freeResourceUrls).permitAll()
                         .requestMatchers("/api/register", "/api/login", "/api/refresh_token").permitAll()
-                        .requestMatchers("/text").hasRole("ADMIN")
-                        .requestMatchers("/actuator/**").permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())))
