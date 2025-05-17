@@ -39,9 +39,6 @@ public class UserRequestDto {
 
     Role role;
 
-    @JsonProperty("profile_picture")
-    String profilePicture;
-
     @Builder.Default
     @JsonProperty("registration_date")
     LocalDateTime registrationDate = LocalDateTime.now();

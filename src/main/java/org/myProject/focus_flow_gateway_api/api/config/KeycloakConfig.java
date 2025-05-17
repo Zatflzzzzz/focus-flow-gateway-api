@@ -25,20 +25,4 @@ public class KeycloakConfig {
 
     @Value("${KEYCLOAK_CLIENT_SECRET}")
     private String clientSecret;
-
-    @Bean
-    public Keycloak keycloak() {
-        return KeycloakBuilder.builder()
-                .serverUrl(authServerUrl)
-                .realm(realm)
-                .clientId(clientId)
-                .clientSecret(clientSecret)
-                .grantType("client_credentials")
-                .build();
-    }
-
-    @Bean
-    public WebClient webClient() {
-        return WebClient.builder().build();
-    }
 }
